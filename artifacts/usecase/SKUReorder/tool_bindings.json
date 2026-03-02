@@ -1,0 +1,27 @@
+{
+  "id": "usecase:SKUReorder:v1",
+  "allowed_tools": ["NL2SQL_Tool", "ReorderPlanner"],
+  "bindings": {
+    "NL2SQL_Tool": {
+      "defaults": {
+        "query": "find sku reorder candidates",
+        "metrics": ["sales", "stock", "stockouts", "lead_time_days"]
+      },
+      "constraints": {
+        "max_rows": 50,
+        "allowed_tables": ["sales_fact", "inventory_fact"]
+      },
+      "schema_ref": "schemas/nl2sql_input.schema.json"
+    },
+    "ReorderPlanner": {
+      "defaults": {
+        "target_service_level": 0.95,
+        "risk_buffer_pct": 0.15
+      },
+      "constraints": {
+        "max_rows": 50
+      },
+      "schema_ref": "schemas/reorder_planner_input.schema.json"
+    }
+  }
+}

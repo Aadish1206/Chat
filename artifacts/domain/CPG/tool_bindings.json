@@ -1,0 +1,26 @@
+{
+  "id": "domain:CPG:v1",
+  "allowed_tools": ["NL2SQL_Tool", "ReorderPlanner"],
+  "bindings": {
+    "NL2SQL_Tool": {
+      "defaults": {
+        "query_scope": "cpg_global",
+        "metrics": ["sales", "stock"]
+      },
+      "constraints": {
+        "max_rows": 200,
+        "allowed_tables": ["sales_fact", "inventory_fact", "stockout_fact"]
+      },
+      "schema_ref": "schemas/nl2sql_input.schema.json"
+    },
+    "ReorderPlanner": {
+      "defaults": {
+        "target_service_level": 0.9
+      },
+      "constraints": {
+        "max_rows": 200
+      },
+      "schema_ref": "schemas/reorder_planner_input.schema.json"
+    }
+  }
+}

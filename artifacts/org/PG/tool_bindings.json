@@ -1,0 +1,30 @@
+{
+  "id": "org:PG:v1",
+  "allowed_tools": ["NL2SQL_Tool", "ReorderPlanner"],
+  "bindings": {
+    "NL2SQL_Tool": {
+      "defaults": {
+        "query_scope": "pg_bu",
+        "org_id": "PG"
+      },
+      "constraints": {
+        "max_rows": 100,
+        "allowed_tables": ["sales_fact", "inventory_fact"]
+      },
+      "schema_ref": "schemas/nl2sql_input.schema.json",
+      "data_context": {
+        "warehouse": "snowflake-pg",
+        "timezone": "UTC"
+      }
+    },
+    "ReorderPlanner": {
+      "defaults": {
+        "planning_horizon_days": 30
+      },
+      "constraints": {
+        "max_rows": 100
+      },
+      "schema_ref": "schemas/reorder_planner_input.schema.json"
+    }
+  }
+}

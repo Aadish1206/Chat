@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "rows": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "sku": {"type": "string"},
+          "sales": {"type": "number"},
+          "stock": {"type": "number"},
+          "stockouts": {"type": "number"},
+          "lead_time_days": {"type": "number"}
+        },
+        "required": ["sku", "sales", "stock", "stockouts", "lead_time_days"]
+      }
+    },
+    "target_service_level": {"type": "number"},
+    "risk_buffer_pct": {"type": "number"},
+    "planning_horizon_days": {"type": "number"}
+  },
+  "required": ["rows"],
+  "additionalProperties": true
+}

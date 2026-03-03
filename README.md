@@ -1,5 +1,15 @@
 # Backend-first Chatbot Service (FastAPI)
 
+## Environment setup
+
+Create a local `.env` file (already included in this repo for convenience) and update values as needed:
+
+```bash
+cp .env.example .env
+```
+
+Set `OPENAI_API_KEY` if you want LLM-backed planning. Leaving it blank keeps deterministic fallback behavior.
+
 ## Run
 
 ```bash
@@ -7,6 +17,8 @@ python -m venv .venv
 source .venv/bin/activate
 pip install -e .[dev]
 uvicorn apps.api.main:app --reload --port 8000
+# Optional richer web UI
+uvicorn app:app --reload --port 8000
 ```
 
 ## Sample chat request

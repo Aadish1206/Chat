@@ -1,0 +1,139 @@
+from __future__ import annotations
+
+import asyncio
+import os
+from copy import deepcopy
+from typing import Any
+
+from cogentiq.knowledge import Knowledge
+
+
+class DomainLayer:
+    def __init__(self, root: str = "data") -> None:
+        self.knowledge = Knowledge(root)
+
+    def _extract_by_type(self, envelope: dict[str, Any], artifact_type: str) -> list[dict[str, Any]]:
+        return [a for a in envelope.get("artifacts", []) if a.get("type") == artifact_type]
+
+    def _deep_merge(self, base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
+        merged = deepcopy(base)
+        for k, v in override.items():
+            if isinstance(v, dict) and isinstance(merged.get(k), dict):
+                merged[k] = self._deep_merge(merged[k], v)
+            else:
+                merged[k] = deepcopy(v)
+        return merged
+
+    def _merge_layered(self, domain_env: dict[str, Any], org_env: dict[str, Any], usecase_env: dict[str, Any]) -> dict[str, Any]:
+        merged: dict[str, Any] = {
+            "glossary": {},
+            "ontology": [],
+            "data_bindings": {},
+            "tool_bindings": [],
+            "prompt_assets": {"composed_prompt": "", "reasoning_plan": [], "vector_contexts": []},
+        }
+
+        # glossary overwrite by precedence
+        for env in [domain_env, org_env, usecase_env]:
+            for a in self._extract_by_type(env, "glossary"):
+                merged["glossary"].update(a.get("content", {}))
+
+        # ontology union dedup
+        seen = set()
+        for env in [domain_env, org_env, usecase_env]:
+            for a in self._extract_by_type(env, "ontology"):
+                for rel in a.get("content", {}).get("relationships", []):
+                    key = str(rel)
+                    if key not in seen:
+                        seen.add(key)
+                        merged["ontology"].append(rel)
+
+        # data bindings overlay, filters override by precedence
+        db = {}
+        for env in [domain_env, org_env, usecase_env]:
+            for a in self._extract_by_type(env, "data_bindings"):
+                db = self._deep_merge(db, a.get("content", {}))
+        merged["data_bindings"] = db
+
+        # prompt assets
+        for env in [domain_env, org_env, usecase_env]:
+            for a in self._extract_by_type(env, "prompt_assets"):
+                c = a.get("content", {})
+                if c.get("composed_prompt"):
+                    merged["prompt_assets"]["composed_prompt"] = c["composed_prompt"]
+                merged["prompt_assets"]["reasoning_plan"].extend(c.get("reasoning_plan", []))
+                merged["prompt_assets"]["vector_contexts"].extend(c.get("vector_contexts", []))
+        merged["prompt_assets"]["reasoning_plan"] = list(dict.fromkeys(merged["prompt_assets"]["reasoning_plan"]))
+        merged["prompt_assets"]["vector_contexts"] = list(dict.fromkeys(merged["prompt_assets"]["vector_contexts"]))
+
+        # tools by name deep merge precedence
+        tools: dict[str, dict[str, Any]] = {}
+        for env in [domain_env, org_env, usecase_env]:
+            for a in self._extract_by_type(env, "tool_bindings"):
+                for tool in a.get("content", {}).get("tools", []):
+                    name = tool.get("name")
+                    if not name:
+                        continue
+                    tools[name] = self._deep_merge(tools.get(name, {}), tool)
+        merged["tool_bindings"] = list(tools.values())
+        return merged
+
+    def _search(self, user_query: str, merged: dict[str, Any], top_n: int) -> list[dict[str, Any]]:
+        q = user_query.lower()
+        hits = []
+        for term, definition in merged.get("glossary", {}).items():
+            score = 1 if term.lower() in q else 0
+            if score:
+                hits.append({"term": term, "definition": definition, "score": score})
+        return sorted(hits, key=lambda x: x["score"], reverse=True)[:top_n]
+
+    async def query_orchestrate_async(
+        self,
+        query: str,
+        domain: str,
+        org: str,
+        usecase: str,
+        include: list[str] | None = None,
+        exclude: list[str] | None = None,
+        top_n: int = 5,
+    ) -> dict[str, Any]:
+        include = include or []
+        exclude = exclude or []
+        d = self.knowledge.list("domain", domain, include=include, exclude=exclude)
+        o = self.knowledge.list("org", org, include=include, exclude=exclude)
+        u = self.knowledge.list("usecase", usecase, include=include, exclude=exclude)
+
+        merged = self._merge_layered(d, o, u)
+        citations = [f"domain/{domain}/artifacts.json", f"org/{org}/artifacts.json", f"usecase/{usecase}/artifacts.json"]
+        search_hits = self._search(query, merged, top_n)
+
+        composed_prompt = merged["prompt_assets"]["composed_prompt"] or "Answer as supply-chain analyst."
+        composed_prompt += f"\n\nUser Query: {query}\n"
+        if search_hits:
+            composed_prompt += "\nGlossary hits:\n" + "\n".join([f"- {h['term']}: {h['definition']}" for h in search_hits])
+
+        # inject data context into NL2SQL-like tools
+        tables = merged.get("data_bindings", {}).get("tables", [])
+        filters = merged.get("data_bindings", {}).get("filters", {})
+        tools = []
+        for t in merged.get("tool_bindings", []):
+            t2 = deepcopy(t)
+            if t2.get("name", "").lower() in {"nl2sql", "nl2sql_tool"}:
+                t2.setdefault("input", {})["data_context"] = {"tables": tables, "filters": filters}
+            tools.append(t2)
+
+        return {
+            "input": {"query": query, "domain": domain, "org": org, "usecase": usecase},
+            "reasoning_plan": merged["prompt_assets"]["reasoning_plan"],
+            "composed_prompt": composed_prompt,
+            "tools": tools,
+            "citations": citations,
+            "trace": {
+                "top_n": top_n,
+                "openai_enabled": bool(os.getenv("OPENAI_API_KEY")),
+                "search_hits": len(search_hits),
+            },
+        }
+
+    def query_orchestrate(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
+        return asyncio.run(self.query_orchestrate_async(*args, **kwargs))

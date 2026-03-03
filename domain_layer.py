@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 from copy import deepcopy
 from typing import Any
@@ -87,6 +88,37 @@ class DomainLayer:
                 hits.append({"term": term, "definition": definition, "score": score})
         return sorted(hits, key=lambda x: x["score"], reverse=True)[:top_n]
 
+    def _artifact_score(self, query: str, artifact: dict[str, Any]) -> float:
+        q_tokens = set(query.lower().split())
+        text = " ".join(
+            [
+                str(artifact.get("name", "")),
+                str(artifact.get("snippet", "")),
+                json.dumps(artifact.get("content", {}), sort_keys=True),
+            ]
+        ).lower()
+        if not q_tokens:
+            return 0.0
+        matched = sum(1 for token in q_tokens if token in text)
+        return round(matched / len(q_tokens), 2)
+
+    def _collect_artifacts(
+        self,
+        domain: str,
+        org: str | None,
+        usecase: str | None,
+        include: list[str],
+        exclude: list[str],
+    ) -> list[dict[str, Any]]:
+        entries: list[dict[str, Any]] = []
+        for scope, key in [("domain", domain), ("org", org), ("usecase", usecase)]:
+            if not key:
+                continue
+            envelope = self.knowledge.list(scope, key, include=include, exclude=exclude)
+            for artifact in envelope.get("artifacts", []):
+                entries.append({"scope": scope, **artifact})
+        return entries
+
     async def query_orchestrate_async(
         self,
         query: str,
@@ -127,13 +159,109 @@ class DomainLayer:
             "reasoning_plan": merged["prompt_assets"]["reasoning_plan"],
             "composed_prompt": composed_prompt,
             "tools": tools,
-            "citations": citations,
+            "citations": {
+                "artifact_refs": citations,
+                "vector_contexts": merged["prompt_assets"]["vector_contexts"],
+            },
             "trace": {
                 "top_n": top_n,
                 "openai_enabled": bool(os.getenv("OPENAI_API_KEY")),
                 "search_hits": len(search_hits),
+                "domain": domain,
+                "org": org,
+                "usecase": usecase,
             },
         }
+
+    def search(
+        self,
+        query: str,
+        domain: str,
+        org: str,
+        usecase: str,
+        include: list[str] | None = None,
+        exclude: list[str] | None = None,
+        top_n: int = 5,
+        for_each: bool = False,
+    ) -> dict[str, Any]:
+        include = include or []
+        exclude = exclude or []
+        artifacts = self._collect_artifacts(domain, org, usecase, include, exclude)
+
+        results = []
+        for artifact in artifacts:
+            results.append(
+                {
+                    "type": artifact.get("type", "unknown"),
+                    "name": artifact.get("name", "unnamed"),
+                    "match_score": self._artifact_score(query, artifact),
+                    "snippet": artifact.get("snippet", ""),
+                    "source": artifact.get("source", ""),
+                    "scope": artifact.get("scope", ""),
+                }
+            )
+        results = sorted(results, key=lambda x: x["match_score"], reverse=True)[:top_n]
+
+        payload: dict[str, Any] = {
+            "input": {
+                "query": query,
+                "domain": domain,
+                "org": org,
+                "usecase": usecase,
+                "top_n": top_n,
+                "for_each": for_each,
+            },
+            "results": results,
+            "retrieved_from": ["Domain Artifact Registry"],
+        }
+        if for_each:
+            grouped: dict[str, list[dict[str, Any]]] = {"domain": [], "org": [], "usecase": []}
+            for item in results:
+                grouped[item.get("scope", "")] = grouped.get(item.get("scope", ""), []) + [item]
+            payload["results_by_scope"] = grouped
+        return payload
+
+    def list(
+        self,
+        domain: str,
+        org: str | None = None,
+        usecase: str | None = None,
+        include: list[str] | None = None,
+        exclude: list[str] | None = None,
+        limit: int = 10,
+        for_each: bool = False,
+    ) -> dict[str, Any]:
+        include = include or []
+        exclude = exclude or []
+        artifacts = self._collect_artifacts(domain, org, usecase, include, exclude)
+
+        results = [
+            {
+                "type": a.get("type", "unknown"),
+                "name": a.get("name", "unnamed"),
+                "snippet": a.get("snippet", ""),
+                "source": a.get("source", ""),
+                "scope": a.get("scope", ""),
+            }
+            for a in artifacts[:limit]
+        ]
+        payload: dict[str, Any] = {
+            "input": {
+                "domain": domain,
+                "org": org,
+                "usecase": usecase,
+                "limit": limit,
+                "for_each": for_each,
+            },
+            "results": results,
+            "retrieved_from": ["Domain Artifact Registry"],
+        }
+        if for_each:
+            grouped: dict[str, list[dict[str, Any]]] = {"domain": [], "org": [], "usecase": []}
+            for item in results:
+                grouped[item.get("scope", "")] = grouped.get(item.get("scope", ""), []) + [item]
+            payload["results_by_scope"] = grouped
+        return payload
 
     def query_orchestrate(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
         return asyncio.run(self.query_orchestrate_async(*args, **kwargs))

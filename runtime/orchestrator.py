@@ -61,7 +61,7 @@ class ChatbotRuntime:
 
         return {
             "answer": answer,
-            "sources": response.get("citations", []),
+            "sources": response.get("citations", {}).get("artifact_refs", response.get("citations", [])),
             "tool_traces": traces,
             "trace": response.get("trace", {}),
             "tools_used": tools_used,

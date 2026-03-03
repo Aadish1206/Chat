@@ -1,0 +1,68 @@
+{
+  "artifacts": [
+    {
+      "type": "data_bindings",
+      "name": "ul_data",
+      "version": "1.0",
+      "snippet": "UL warehouse",
+      "source": "org/UL",
+      "content": {
+        "tables": [
+          {
+            "name": "sku_daily",
+            "columns": [
+              "sku",
+              "month",
+              "region",
+              "sales",
+              "stock",
+              "lead_time_days"
+            ]
+          }
+        ],
+        "filters": {
+          "region": "EU"
+        }
+      }
+    },
+    {
+      "type": "tool_bindings",
+      "name": "ul_tools",
+      "version": "1.0",
+      "snippet": "Org tools",
+      "source": "org/UL",
+      "content": {
+        "tools": [
+          {
+            "name": "nl2sql",
+            "type": "function",
+            "input_schema": {
+              "type": "object",
+              "properties": {
+                "question": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "question"
+              ]
+            },
+            "input": {}
+          },
+          {
+            "name": "reorder_planner",
+            "type": "function",
+            "input_schema": {
+              "type": "object",
+              "properties": {
+                "format": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

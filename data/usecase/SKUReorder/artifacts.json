@@ -1,0 +1,52 @@
+{
+  "artifacts": [
+    {
+      "type": "prompt_assets",
+      "name": "reorder_prompt",
+      "version": "1.0",
+      "snippet": "Usecase formatting",
+      "source": "usecase/SKUReorder",
+      "content": {
+        "composed_prompt": "Focus on monthly SKU reorder recommendations with markdown tables.",
+        "reasoning_plan": [
+          "Use inventory and lead time"
+        ],
+        "vector_contexts": [
+          "SKU reorder best practices"
+        ]
+      }
+    },
+    {
+      "type": "data_bindings",
+      "name": "reorder_filters",
+      "version": "1.0",
+      "snippet": "January scope",
+      "source": "usecase/SKUReorder",
+      "content": {
+        "filters": {
+          "month": "January"
+        }
+      }
+    },
+    {
+      "type": "tool_bindings",
+      "name": "reorder_tools",
+      "version": "1.0",
+      "snippet": "Usecase tools",
+      "source": "usecase/SKUReorder",
+      "content": {
+        "tools": [
+          {
+            "name": "reorder_risk_simulator",
+            "type": "function",
+            "input_schema": {
+              "type": "object",
+              "properties": {},
+              "additionalProperties": true
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

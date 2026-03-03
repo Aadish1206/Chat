@@ -1,0 +1,30 @@
+{
+  "artifacts": [
+    {
+      "type": "glossary",
+      "name": "cpg_glossary",
+      "version": "1.0",
+      "snippet": "Core terms",
+      "source": "domain/CPG",
+      "content": {
+        "safety_stock": "buffer inventory to absorb demand variance"
+      }
+    },
+    {
+      "type": "prompt_assets",
+      "name": "base_prompt",
+      "version": "1.0",
+      "snippet": "domain base",
+      "source": "domain/CPG",
+      "content": {
+        "composed_prompt": "You are a CPG supply chain assistant.",
+        "reasoning_plan": [
+          "Identify SKUs at risk"
+        ],
+        "vector_contexts": [
+          "CPG demand patterns"
+        ]
+      }
+    }
+  ]
+}

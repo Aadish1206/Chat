@@ -1,0 +1,18 @@
+[project]
+name = "chat-backend"
+version = "0.1.0"
+description = "Backend-first chatbot service with effective tool bindings"
+requires-python = ">=3.10"
+dependencies = [
+  "fastapi>=0.110.0",
+  "uvicorn>=0.27.0",
+  "pydantic>=2.6.0",
+  "jsonschema>=4.21.0"
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0.0"]
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"

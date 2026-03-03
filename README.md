@@ -1,59 +1,31 @@
-# Cogentiq Domain Layer PoC Chatbot
+# Backend-first Chatbot Service (FastAPI)
 
-This project provides a working end-to-end chatbot runtime that uses local filesystem artifacts under `./data` and DomainLayer orchestration.
+## Run
 
-## How to run
-
-1) Create sample local registry data
 ```bash
-python3 setup_data.py
+python -m venv .venv
+source .venv/bin/activate
+pip install -e .[dev]
+uvicorn apps.api.main:app --reload --port 8000
 ```
 
-2) CLI mode
-```bash
-python3 chat.py
-```
+## Sample chat request
 
-3) FastAPI web mode
-```bash
-uvicorn app:app --reload --port 8000
-```
-
-4) Example API call
 ```bash
 curl -s -X POST http://localhost:8000/chat \
   -H 'Content-Type: application/json' \
-  -d '{"domain":"CPG","org":"UL","usecase":"SKUReorder","message":"How should I plan SKU reorder for January in EU region?"}'
+  -d '{
+    "session_id":"s1",
+    "domain":"CPG",
+    "org":"PG",
+    "usecase":"SKUReorder",
+    "message":"Recommend reorder quantities for risky SKUs this month"
+  }' | jq
 ```
 
-## Runtime flow implemented
-- Domain/org/usecase resolution via `DomainLayer.query_orchestrate_async(...)`
-- Excludes `knowledgebase` and `evaluation-assets`
-- Uses resolved `tools` as allowed toolset
-- Validates tool input with JSON Schema
-- Executes local demo tools (`nl2sql`, `reorder_planner`, `reorder_risk_simulator`)
-- Returns final answer with Sources, tools, and trace
-- Deterministic fallback when `OPENAI_API_KEY` is not set
+## Endpoints
 
-## End-to-end example conversation
-Selection:
-- domain: `CPG`
-- org: `UL`
-- usecase: `SKUReorder`
-
-User:
-> How should I plan SKU reorder for January in EU region?
-
-Tool calls:
-1. `nl2sql` with question + data_context (tables + filters)
-2. `reorder_planner` to format markdown plan
-
-Assistant (example):
-- Deterministic fallback analysis generated.
-- Pseudo SQL references `sku_daily` and filters `region='EU'` and `month='January'`.
-- Reorder guidance and tool output summaries included.
-
-Sources:
-- `domain/CPG/artifacts.json`
-- `org/UL/artifacts.json`
-- `usecase/SKUReorder/artifacts.json`
+- `GET /catalog/domains`
+- `GET /catalog/orgs?domain=CPG`
+- `GET /catalog/usecases?domain=CPG&org=PG`
+- `POST /chat`

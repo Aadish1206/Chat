@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import re
 from copy import deepcopy
 from typing import Any
 
@@ -102,6 +103,37 @@ class DomainLayer:
         matched = sum(1 for token in q_tokens if token in text)
         return round(matched / len(q_tokens), 2)
 
+    def _extract_requested_filters(self, query: str) -> dict[str, str]:
+        q = query.lower()
+        requested: dict[str, str] = {}
+
+        months = [
+            "january",
+            "february",
+            "march",
+            "april",
+            "may",
+            "june",
+            "july",
+            "august",
+            "september",
+            "october",
+            "november",
+            "december",
+        ]
+        for month in months:
+            if month in q:
+                requested["month"] = month.capitalize()
+                requested["service_month"] = month.capitalize()
+                break
+
+        # Simple region extraction from common labels.
+        region_match = re.search(r"\b(eu|us|apac|emea|na|east|west|north|south)\b", q)
+        if region_match:
+            requested["region"] = region_match.group(1).upper()
+
+        return requested
+
     def _collect_artifacts(
         self,
         domain: str,
@@ -138,6 +170,7 @@ class DomainLayer:
         merged = self._merge_layered(d, o, u)
         citations = [f"domain/{domain}/artifacts.json", f"org/{org}/artifacts.json", f"usecase/{usecase}/artifacts.json"]
         search_hits = self._search(query, merged, top_n)
+        requested_filters = self._extract_requested_filters(query)
 
         composed_prompt = merged["prompt_assets"]["composed_prompt"] or "Answer as supply-chain analyst."
         composed_prompt += f"\n\nUser Query: {query}\n"
@@ -147,6 +180,20 @@ class DomainLayer:
         # inject data context into NL2SQL-like tools
         tables = merged.get("data_bindings", {}).get("tables", [])
         filters = merged.get("data_bindings", {}).get("filters", {})
+        conflicts_applied = []
+        for key, requested in requested_filters.items():
+            effective = filters.get(key)
+            if effective is None:
+                continue
+            if str(requested).lower() != str(effective).lower():
+                conflicts_applied.append(
+                    {
+                        "field": key,
+                        "requested": requested,
+                        "effective": effective,
+                        "reason": "layer override",
+                    }
+                )
         tools = []
         for t in merged.get("tool_bindings", []):
             t2 = deepcopy(t)
@@ -170,6 +217,9 @@ class DomainLayer:
                 "domain": domain,
                 "org": org,
                 "usecase": usecase,
+                "requested_filters": requested_filters,
+                "effective_filters": filters,
+                "conflicts_applied": conflicts_applied,
             },
         }
 

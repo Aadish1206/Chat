@@ -2,31 +2,33 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Query
 
-from core.registry.file_registry import FileRegistry
+from cogentiq.knowledge import Knowledge
 from core.schemas.api_models import CatalogItem, CatalogResponse
 
 router = APIRouter(prefix="/catalog", tags=["catalog"])
 
 
-def get_registry() -> FileRegistry:
-    return FileRegistry()
+def get_knowledge() -> Knowledge:
+    return Knowledge("data")
 
 
 @router.get("/domains", response_model=CatalogResponse)
-def list_domains(registry: FileRegistry = Depends(get_registry)) -> CatalogResponse:
-    items = [CatalogItem(**item) for item in registry.list_domains()]
+def list_domains(knowledge: Knowledge = Depends(get_knowledge)) -> CatalogResponse:
+    items = [CatalogItem(id=name, name=name) for name in knowledge.domains()]
     return CatalogResponse(items=items)
 
 
 @router.get("/orgs", response_model=CatalogResponse)
-def list_orgs(domain: str = Query(...), registry: FileRegistry = Depends(get_registry)) -> CatalogResponse:
-    items = [CatalogItem(**item) for item in registry.list_orgs(domain)]
+def list_orgs(domain: str = Query(...), knowledge: Knowledge = Depends(get_knowledge)) -> CatalogResponse:
+    _ = domain
+    items = [CatalogItem(id=name, name=name) for name in knowledge.orgs()]
     return CatalogResponse(items=items)
 
 
 @router.get("/usecases", response_model=CatalogResponse)
 def list_usecases(
-    domain: str = Query(...), org: str = Query(...), registry: FileRegistry = Depends(get_registry)
+    domain: str = Query(...), org: str = Query(...), knowledge: Knowledge = Depends(get_knowledge)
 ) -> CatalogResponse:
-    items = [CatalogItem(**item) for item in registry.list_usecases(domain, org)]
+    _ = domain, org
+    items = [CatalogItem(id=name, name=name) for name in knowledge.usecases()]
     return CatalogResponse(items=items)

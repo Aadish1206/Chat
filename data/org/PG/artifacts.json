@@ -1,0 +1,90 @@
+{
+  "artifacts": [
+    {
+      "type": "data_bindings",
+      "name": "pg_sales_data",
+      "version": "1.0",
+      "snippet": "P&G sales and inventory datasets",
+      "source": "org/PG",
+      "content": {
+        "tables": [
+          {
+            "name": "pg_sku_daily",
+            "columns": [
+              "sku",
+              "month",
+              "region",
+              "sales",
+              "stock",
+              "lead_time_days",
+              "promo_flag"
+            ]
+          }
+        ],
+        "filters": {
+          "region": "NA"
+        }
+      }
+    },
+    {
+      "type": "prompt_assets",
+      "name": "pg_planning_prompt",
+      "version": "1.0",
+      "snippet": "Org planning style and output priorities",
+      "source": "org/PG",
+      "content": {
+        "composed_prompt": "You are assisting P&G supply planners. Focus on actionable next steps and clear markdown output.",
+        "reasoning_plan": [
+          "Flag low-stock SKUs with long lead times"
+        ],
+        "vector_contexts": [
+          "PG planning heuristics"
+        ]
+      }
+    },
+    {
+      "type": "tool_bindings",
+      "name": "pg_tools",
+      "version": "1.0",
+      "snippet": "Org tools for CPG planning",
+      "source": "org/PG",
+      "content": {
+        "tools": [
+          {
+            "name": "nl2sql",
+            "type": "function",
+            "input_schema": {
+              "type": "object",
+              "properties": {
+                "question": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "question"
+              ]
+            },
+            "input": {
+              "question": "Get top low-stock SKUs by region and month."
+            }
+          },
+          {
+            "name": "reorder_planner",
+            "type": "function",
+            "input_schema": {
+              "type": "object",
+              "properties": {
+                "format": {
+                  "type": "string"
+                }
+              }
+            },
+            "input": {
+              "format": "markdown"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

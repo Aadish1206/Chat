@@ -7,7 +7,9 @@
       "snippet": "Core terms",
       "source": "domain/CPG",
       "content": {
-        "safety_stock": "buffer inventory to absorb demand variance"
+        "safety_stock": "Buffer inventory to absorb demand variance and replenishment delay.",
+        "fill_rate": "Percentage of demand fulfilled without stockouts.",
+        "lead_time": "Time between placing a replenishment order and stock availability."
       }
     },
     {
@@ -17,9 +19,11 @@
       "snippet": "domain base",
       "source": "domain/CPG",
       "content": {
-        "composed_prompt": "You are a CPG supply chain assistant.",
+        "composed_prompt": "You are a CPG supply chain assistant. Provide practical, risk-aware reorder guidance and call tools before making numeric recommendations.",
         "reasoning_plan": [
-          "Identify SKUs at risk"
+          "Identify SKUs at risk",
+          "Compare stock against forecast and lead time",
+          "Explain confidence and assumptions"
         ],
         "vector_contexts": [
           "CPG demand patterns"

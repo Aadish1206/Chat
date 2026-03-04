@@ -1,0 +1,59 @@
+{
+  "artifacts": [
+    {
+      "type": "prompt_assets",
+      "name": "promo_effectiveness_prompt",
+      "version": "1.0",
+      "snippet": "Usecase prompt for promo ROI analysis",
+      "source": "usecase/PromoEffectiveness",
+      "content": {
+        "composed_prompt": "Focus on promotion effectiveness. Explain uplift, risk, and next promotion adjustments in markdown bullets.",
+        "reasoning_plan": [
+          "Retrieve promo-period vs baseline performance",
+          "Estimate risk and confidence before recommending changes"
+        ],
+        "vector_contexts": [
+          "Promo uplift playbooks"
+        ]
+      }
+    },
+    {
+      "type": "data_bindings",
+      "name": "promo_filters",
+      "version": "1.0",
+      "snippet": "Default promo analysis filters",
+      "source": "usecase/PromoEffectiveness",
+      "content": {
+        "filters": {
+          "month": "January",
+          "promo_flag": "true"
+        }
+      }
+    },
+    {
+      "type": "tool_bindings",
+      "name": "promo_tools",
+      "version": "1.0",
+      "snippet": "Usecase tools for promo effectiveness",
+      "source": "usecase/PromoEffectiveness",
+      "content": {
+        "tools": [
+          {
+            "name": "nl2sql",
+            "type": "function",
+            "input": {
+              "question": "Compare promo and non-promo SKU performance by region."
+            }
+          },
+          {
+            "name": "reorder_risk_simulator",
+            "type": "function",
+            "input": {
+              "risk_threshold": 0.7
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

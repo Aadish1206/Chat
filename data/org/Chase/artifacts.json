@@ -1,0 +1,102 @@
+{
+  "artifacts": [
+    {
+      "type": "data_bindings",
+      "name": "chase_transactions_data",
+      "version": "1.0",
+      "snippet": "Card transaction and alert datasets",
+      "source": "org/Chase",
+      "content": {
+        "tables": [
+          {
+            "name": "card_txn_daily",
+            "columns": [
+              "txn_id",
+              "account_id",
+              "month",
+              "region",
+              "amount",
+              "merchant",
+              "device_id",
+              "velocity_score"
+            ]
+          },
+          {
+            "name": "fraud_alerts",
+            "columns": [
+              "alert_id",
+              "account_id",
+              "month",
+              "region",
+              "risk_score",
+              "status"
+            ]
+          }
+        ],
+        "filters": {
+          "region": "US"
+        }
+      }
+    },
+    {
+      "type": "prompt_assets",
+      "name": "chase_risk_prompt",
+      "version": "1.0",
+      "snippet": "Org-level fraud response guidance",
+      "source": "org/Chase",
+      "content": {
+        "composed_prompt": "You are assisting Chase fraud operations. Prioritize risk containment and provide clear escalation actions.",
+        "reasoning_plan": [
+          "Identify top risky accounts and transaction clusters"
+        ],
+        "vector_contexts": [
+          "Chase fraud runbooks"
+        ]
+      }
+    },
+    {
+      "type": "tool_bindings",
+      "name": "chase_tools",
+      "version": "1.0",
+      "snippet": "Org tools for fraud analysis",
+      "source": "org/Chase",
+      "content": {
+        "tools": [
+          {
+            "name": "nl2sql",
+            "type": "function",
+            "input_schema": {
+              "type": "object",
+              "properties": {
+                "question": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "question"
+              ]
+            },
+            "input": {
+              "question": "Find high-risk transactions by account and region."
+            }
+          },
+          {
+            "name": "reorder_risk_simulator",
+            "type": "function",
+            "input_schema": {
+              "type": "object",
+              "properties": {
+                "risk_threshold": {
+                  "type": "number"
+                }
+              }
+            },
+            "input": {
+              "risk_threshold": 0.8
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

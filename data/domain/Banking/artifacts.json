@@ -1,0 +1,34 @@
+{
+  "artifacts": [
+    {
+      "type": "glossary",
+      "name": "banking_glossary",
+      "version": "1.0",
+      "snippet": "Core banking risk and operations terms",
+      "source": "domain/Banking",
+      "content": {
+        "fraud_alert": "A flagged transaction pattern with elevated fraud likelihood.",
+        "chargeback": "A reversal of card transaction funds initiated by issuer or cardholder.",
+        "transaction_velocity": "Frequency of transactions over a defined time window."
+      }
+    },
+    {
+      "type": "prompt_assets",
+      "name": "banking_base_prompt",
+      "version": "1.0",
+      "snippet": "Domain-level banking response guidance",
+      "source": "domain/Banking",
+      "content": {
+        "composed_prompt": "You are a banking operations assistant. Prioritize risk containment, explain evidence, and recommend next actions.",
+        "reasoning_plan": [
+          "Identify suspicious entities and patterns",
+          "Quantify risk and potential impact",
+          "Recommend controls and monitoring actions"
+        ],
+        "vector_contexts": [
+          "Banking fraud controls"
+        ]
+      }
+    }
+  ]
+}

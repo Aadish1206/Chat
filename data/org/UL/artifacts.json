@@ -18,11 +18,38 @@
               "stock",
               "lead_time_days"
             ]
+          },
+          {
+            "name": "stockout_events",
+            "columns": [
+              "sku",
+              "month",
+              "region",
+              "stockout_days",
+              "lost_sales"
+            ]
           }
         ],
         "filters": {
           "region": "EU"
         }
+      }
+    },
+    {
+      "type": "prompt_assets",
+      "name": "ul_planning_policy",
+      "version": "1.0",
+      "snippet": "UL planning context",
+      "source": "org/UL",
+      "content": {
+        "composed_prompt": "You are assisting UL planners. Prefer conservative reorder quantities when stockout risk is high and highlight assumptions clearly.",
+        "reasoning_plan": [
+          "Use UL region-filtered data context for all analysis",
+          "Prioritize SKUs with high lost sales risk"
+        ],
+        "vector_contexts": [
+          "UL planning policies"
+        ]
       }
     },
     {
@@ -36,6 +63,8 @@
           {
             "name": "nl2sql",
             "type": "function",
+            "trigger": "Use for retrieval questions about sales, stock, lead time, and stockouts.",
+            "description": "Translate business question to read-only SQL and return a summarized result with CSV output path.",
             "input_schema": {
               "type": "object",
               "properties": {
@@ -47,18 +76,84 @@
                 "question"
               ]
             },
-            "input": {}
+            "output_schema": {
+              "type": "object",
+              "properties": {
+                "text": {
+                  "type": "string"
+                },
+                "sql": {
+                  "type": "string"
+                },
+                "csv_file_path": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "text",
+                "csv_file_path"
+              ]
+            },
+            "example": {
+              "input": {
+                "question": "Show top risky SKUs for January in EU"
+              },
+              "output": {
+                "text": "Generated summary for top risky SKUs.",
+                "sql": "SELECT ...",
+                "csv_file_path": "files/query_results/nl2sql_x.csv"
+              }
+            },
+            "input": {
+              "question": "Get SKU-level stock and sales indicators for planning."
+            }
           },
           {
             "name": "reorder_planner",
             "type": "function",
+            "trigger": "Use after data retrieval to generate final reorder recommendations.",
+            "description": "Build a recommendation table with reorder quantities and rationale.",
             "input_schema": {
               "type": "object",
               "properties": {
                 "format": {
                   "type": "string"
+                },
+                "target_service_level": {
+                  "type": "number"
                 }
+              },
+              "required": [
+                "format"
+              ]
+            },
+            "output_schema": {
+              "type": "object",
+              "properties": {
+                "text": {
+                  "type": "string"
+                },
+                "markdown": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "text"
+              ]
+            },
+            "example": {
+              "input": {
+                "format": "markdown",
+                "target_service_level": 0.95
+              },
+              "output": {
+                "text": "Generated reorder plan.",
+                "markdown": "| SKU | Suggested Reorder | Rationale |"
               }
+            },
+            "input": {
+              "format": "markdown",
+              "target_service_level": 0.95
             }
           }
         ]

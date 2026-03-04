@@ -7,9 +7,10 @@
       "snippet": "Usecase formatting",
       "source": "usecase/SKUReorder",
       "content": {
-        "composed_prompt": "Focus on monthly SKU reorder recommendations with markdown tables.",
+        "composed_prompt": "Focus on monthly SKU reorder recommendations. Return a markdown table with SKU, Suggested Reorder, and Rationale. Keep recommendations conservative when risk is high.",
         "reasoning_plan": [
-          "Use inventory and lead time"
+          "Use inventory and lead time",
+          "Incorporate stockout risk before final quantity recommendations"
         ],
         "vector_contexts": [
           "SKU reorder best practices"
@@ -24,7 +25,8 @@
       "source": "usecase/SKUReorder",
       "content": {
         "filters": {
-          "month": "January"
+          "month": "January",
+          "planner_mode": "conservative"
         }
       }
     },
@@ -37,12 +39,64 @@
       "content": {
         "tools": [
           {
+            "name": "nl2sql",
+            "type": "function",
+            "input": {
+              "question": "Get top SKUs with low stock and high stockout risk for January in EU."
+            }
+          },
+          {
+            "name": "reorder_planner",
+            "type": "function",
+            "input": {
+              "format": "markdown",
+              "target_service_level": 0.97
+            }
+          },
+          {
             "name": "reorder_risk_simulator",
             "type": "function",
+            "trigger": "Use when user asks for risk-focused analysis.",
+            "description": "Compute SKU risk scores from stock, sales, and stockout features.",
             "input_schema": {
               "type": "object",
-              "properties": {},
-              "additionalProperties": true
+              "properties": {
+                "risk_threshold": {
+                  "type": "number"
+                }
+              },
+              "required": []
+            },
+            "output_schema": {
+              "type": "object",
+              "properties": {
+                "text": {
+                  "type": "string"
+                },
+                "scores": {
+                  "type": "array"
+                }
+              },
+              "required": [
+                "text"
+              ]
+            },
+            "example": {
+              "input": {
+                "risk_threshold": 0.7
+              },
+              "output": {
+                "text": "Risk simulation complete.",
+                "scores": [
+                  {
+                    "sku": "SKU-101",
+                    "risk": 0.82
+                  }
+                ]
+              }
+            },
+            "input": {
+              "risk_threshold": 0.7
             }
           }
         ]

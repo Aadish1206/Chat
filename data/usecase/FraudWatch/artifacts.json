@@ -1,0 +1,58 @@
+{
+  "artifacts": [
+    {
+      "type": "prompt_assets",
+      "name": "fraud_watch_prompt",
+      "version": "1.0",
+      "snippet": "Usecase prompt for fraud monitoring",
+      "source": "usecase/FraudWatch",
+      "content": {
+        "composed_prompt": "Focus on transaction fraud monitoring. Return top risks, likely causes, and immediate containment actions.",
+        "reasoning_plan": [
+          "Identify high-risk accounts and velocity anomalies",
+          "Recommend containment and investigation queue"
+        ],
+        "vector_contexts": [
+          "Fraud escalation checklist"
+        ]
+      }
+    },
+    {
+      "type": "data_bindings",
+      "name": "fraud_filters",
+      "version": "1.0",
+      "snippet": "Default fraud watch filters",
+      "source": "usecase/FraudWatch",
+      "content": {
+        "filters": {
+          "month": "January"
+        }
+      }
+    },
+    {
+      "type": "tool_bindings",
+      "name": "fraud_tools",
+      "version": "1.0",
+      "snippet": "Usecase tools for fraud watch",
+      "source": "usecase/FraudWatch",
+      "content": {
+        "tools": [
+          {
+            "name": "nl2sql",
+            "type": "function",
+            "input": {
+              "question": "Retrieve high-risk transactions and alert trends."
+            }
+          },
+          {
+            "name": "reorder_risk_simulator",
+            "type": "function",
+            "input": {
+              "risk_threshold": 0.85
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

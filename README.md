@@ -27,11 +27,11 @@ uvicorn app:app --reload --port 8000
 curl -s -X POST http://localhost:8000/chat \
   -H 'Content-Type: application/json' \
   -d '{
-    "session_id":"s1",
     "domain":"CPG",
-    "org":"PG",
+    "org":"UL",
     "usecase":"SKUReorder",
-    "message":"Recommend reorder quantities for risky SKUs this month"
+    "message":"Recommend reorder quantities for risky SKUs this month",
+    "top_n": 5
   }' | jq
 ```
 

@@ -1,0 +1,58 @@
+{
+  "artifacts": [
+    {
+      "type": "prompt_assets",
+      "name": "claims_triage_prompt",
+      "version": "1.0",
+      "snippet": "Usecase prompt for denial and delay triage",
+      "source": "usecase/ClaimsTriage",
+      "content": {
+        "composed_prompt": "Focus on claim denial and delay triage. Group by driver and provide prioritized operational actions.",
+        "reasoning_plan": [
+          "Identify top denial and delay buckets",
+          "Prioritize interventions by impact and effort"
+        ],
+        "vector_contexts": [
+          "Claims triage workflows"
+        ]
+      }
+    },
+    {
+      "type": "data_bindings",
+      "name": "claims_filters",
+      "version": "1.0",
+      "snippet": "Default claim triage filters",
+      "source": "usecase/ClaimsTriage",
+      "content": {
+        "filters": {
+          "service_month": "January"
+        }
+      }
+    },
+    {
+      "type": "tool_bindings",
+      "name": "claims_tools",
+      "version": "1.0",
+      "snippet": "Usecase tools for claims triage",
+      "source": "usecase/ClaimsTriage",
+      "content": {
+        "tools": [
+          {
+            "name": "nl2sql",
+            "type": "function",
+            "input": {
+              "question": "Show top denial causes and delayed authorizations."
+            }
+          },
+          {
+            "name": "reorder_risk_simulator",
+            "type": "function",
+            "input": {
+              "risk_threshold": 0.6
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

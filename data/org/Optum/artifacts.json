@@ -1,0 +1,101 @@
+{
+  "artifacts": [
+    {
+      "type": "data_bindings",
+      "name": "optum_claims_data",
+      "version": "1.0",
+      "snippet": "Claims and authorization datasets",
+      "source": "org/Optum",
+      "content": {
+        "tables": [
+          {
+            "name": "claims_daily",
+            "columns": [
+              "claim_id",
+              "member_id",
+              "provider_id",
+              "service_month",
+              "region",
+              "billed_amount",
+              "denial_flag"
+            ]
+          },
+          {
+            "name": "prior_auth_events",
+            "columns": [
+              "auth_id",
+              "member_id",
+              "service_month",
+              "region",
+              "status",
+              "turnaround_days"
+            ]
+          }
+        ],
+        "filters": {
+          "region": "US"
+        }
+      }
+    },
+    {
+      "type": "prompt_assets",
+      "name": "optum_ops_prompt",
+      "version": "1.0",
+      "snippet": "Org-specific care and claims guidance",
+      "source": "org/Optum",
+      "content": {
+        "composed_prompt": "You are assisting Optum operations teams. Emphasize claim cycle efficiency and member impact.",
+        "reasoning_plan": [
+          "Prioritize high-volume denial and delay drivers"
+        ],
+        "vector_contexts": [
+          "Optum claims optimization"
+        ]
+      }
+    },
+    {
+      "type": "tool_bindings",
+      "name": "optum_tools",
+      "version": "1.0",
+      "snippet": "Org tools for claims analysis",
+      "source": "org/Optum",
+      "content": {
+        "tools": [
+          {
+            "name": "nl2sql",
+            "type": "function",
+            "input_schema": {
+              "type": "object",
+              "properties": {
+                "question": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "question"
+              ]
+            },
+            "input": {
+              "question": "Find top denial drivers and delayed authorizations."
+            }
+          },
+          {
+            "name": "reorder_risk_simulator",
+            "type": "function",
+            "input_schema": {
+              "type": "object",
+              "properties": {
+                "risk_threshold": {
+                  "type": "number"
+                }
+              }
+            },
+            "input": {
+              "risk_threshold": 0.65
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

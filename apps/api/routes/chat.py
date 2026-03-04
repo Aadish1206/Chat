@@ -1,20 +1,37 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from typing import Any
 
-from core.registry.file_registry import FileRegistry
-from core.runtime.llm_client import LLMClient
-from core.runtime.orchestrator import ChatOrchestrator
-from core.schemas.api_models import ChatRequest, ChatResponse
-from core.tools.router import ToolRouter
+from fastapi import APIRouter, Depends
+from pydantic import BaseModel, Field
+
+from runtime.orchestrator import ChatbotRuntime
 
 router = APIRouter(tags=["chat"])
 
 
-def get_orchestrator() -> ChatOrchestrator:
-    return ChatOrchestrator(registry=FileRegistry(), llm_client=LLMClient(), router=ToolRouter())
+class ChatRequest(BaseModel):
+    domain: str
+    org: str
+    usecase: str
+    message: str
+    top_n: int = 5
+
+
+class ChatResponse(BaseModel):
+    answer: str
+    sources: list[str] = Field(default_factory=list)
+    tool_traces: list[dict[str, Any]] = Field(default_factory=list)
+    trace: dict[str, Any] = Field(default_factory=dict)
+    tools_used: list[str] = Field(default_factory=list)
+    composed_prompt: str = ""
+
+
+def get_runtime() -> ChatbotRuntime:
+    return ChatbotRuntime("data")
 
 
 @router.post("/chat", response_model=ChatResponse)
-def chat(req: ChatRequest, orchestrator: ChatOrchestrator = Depends(get_orchestrator)) -> ChatResponse:
-    return orchestrator.handle_chat(req)
+async def chat(req: ChatRequest, runtime: ChatbotRuntime = Depends(get_runtime)) -> ChatResponse:
+    result = await runtime.answer_async(req.domain, req.org, req.usecase, req.message, req.top_n)
+    return ChatResponse(**result)

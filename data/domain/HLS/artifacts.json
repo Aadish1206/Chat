@@ -1,0 +1,34 @@
+{
+  "artifacts": [
+    {
+      "type": "glossary",
+      "name": "hls_glossary",
+      "version": "1.0",
+      "snippet": "Core healthcare payer/provider terms",
+      "source": "domain/HLS",
+      "content": {
+        "claim": "A request for payment submitted by a provider to a payer.",
+        "prior_authorization": "Approval required before certain services or medications are covered.",
+        "care_gap": "A missing recommended preventive or follow-up action in patient care."
+      }
+    },
+    {
+      "type": "prompt_assets",
+      "name": "hls_base_prompt",
+      "version": "1.0",
+      "snippet": "Domain-level healthcare planning instructions",
+      "source": "domain/HLS",
+      "content": {
+        "composed_prompt": "You are a healthcare operations assistant. Provide safe, auditable recommendations and clearly state assumptions.",
+        "reasoning_plan": [
+          "Identify member/provider context",
+          "Highlight compliance-sensitive constraints",
+          "Summarize operational actions with rationale"
+        ],
+        "vector_contexts": [
+          "HLS operational best practices"
+        ]
+      }
+    }
+  ]
+}

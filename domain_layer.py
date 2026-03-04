@@ -26,6 +26,62 @@ class DomainLayer:
                 merged[k] = deepcopy(v)
         return merged
 
+    def _parse_glossary(self, artifact: dict[str, Any]) -> dict[str, str]:
+        content = artifact.get("content", {})
+        terms = content.get("terms")
+        if isinstance(terms, list):
+            return {
+                str(item.get("term", "")).strip(): str(item.get("definition", "")).strip()
+                for item in terms
+                if item.get("term") and item.get("definition")
+            }
+        return {str(k): str(v) for k, v in content.items() if isinstance(v, str)}
+
+    def _parse_prompt_assets(self, artifact: dict[str, Any]) -> dict[str, Any]:
+        content = artifact.get("content", {})
+        out = {"composed_prompt": "", "reasoning_plan": [], "vector_contexts": []}
+
+        if content.get("composed_prompt"):
+            out["composed_prompt"] = str(content["composed_prompt"])
+        if isinstance(content.get("reasoning_plan"), list):
+            out["reasoning_plan"] = [str(x) for x in content["reasoning_plan"]]
+        if isinstance(content.get("vector_contexts"), list):
+            out["vector_contexts"] = [str(x) for x in content["vector_contexts"]]
+
+        prompts = content.get("prompts", [])
+        if isinstance(prompts, list):
+            ordered = {"system": [], "task": [], "plan": [], "memory": [], "constraints": [], "style": []}
+            for item in prompts:
+                ptype = str(item.get("type", "")).strip().lower()
+                tpl = str(item.get("prompt_template", "")).strip()
+                if ptype in ordered and tpl:
+                    ordered[ptype].append(tpl)
+            blocks = ["\n\n".join(ordered[k]) for k in ["system", "task", "plan", "memory", "constraints", "style"] if ordered[k]]
+            if blocks:
+                out["composed_prompt"] = "\n\n".join(blocks)
+            out["reasoning_plan"].extend(ordered["plan"])
+            out["vector_contexts"].extend(ordered["memory"])
+
+        return out
+
+    def _normalize_data_bindings(self, merged_db: dict[str, Any]) -> dict[str, Any]:
+        tables = merged_db.get("tables", [])
+        columns = merged_db.get("columns", [])
+
+        if tables and columns and all(isinstance(t, dict) and "columns" not in t for t in tables):
+            col_map: dict[str, list[str]] = {}
+            for col in columns:
+                table = col.get("table")
+                name = col.get("name")
+                if table and name:
+                    col_map.setdefault(str(table), []).append(str(name))
+            normalized_tables = []
+            for t in tables:
+                t_name = str(t.get("name", ""))
+                normalized_tables.append({"name": t_name, "columns": col_map.get(t_name, [])})
+            merged_db["tables"] = normalized_tables
+        return merged_db
+
     def _merge_layered(self, domain_env: dict[str, Any], org_env: dict[str, Any], usecase_env: dict[str, Any]) -> dict[str, Any]:
         merged: dict[str, Any] = {
             "glossary": {},
@@ -35,12 +91,10 @@ class DomainLayer:
             "prompt_assets": {"composed_prompt": "", "reasoning_plan": [], "vector_contexts": []},
         }
 
-        # glossary overwrite by precedence
         for env in [domain_env, org_env, usecase_env]:
             for a in self._extract_by_type(env, "glossary"):
-                merged["glossary"].update(a.get("content", {}))
+                merged["glossary"].update(self._parse_glossary(a))
 
-        # ontology union dedup
         seen = set()
         for env in [domain_env, org_env, usecase_env]:
             for a in self._extract_by_type(env, "ontology"):
@@ -50,17 +104,15 @@ class DomainLayer:
                         seen.add(key)
                         merged["ontology"].append(rel)
 
-        # data bindings overlay, filters override by precedence
         db = {}
         for env in [domain_env, org_env, usecase_env]:
             for a in self._extract_by_type(env, "data_bindings"):
                 db = self._deep_merge(db, a.get("content", {}))
-        merged["data_bindings"] = db
+        merged["data_bindings"] = self._normalize_data_bindings(db)
 
-        # prompt assets
         for env in [domain_env, org_env, usecase_env]:
             for a in self._extract_by_type(env, "prompt_assets"):
-                c = a.get("content", {})
+                c = self._parse_prompt_assets(a)
                 if c.get("composed_prompt"):
                     merged["prompt_assets"]["composed_prompt"] = c["composed_prompt"]
                 merged["prompt_assets"]["reasoning_plan"].extend(c.get("reasoning_plan", []))
@@ -68,7 +120,6 @@ class DomainLayer:
         merged["prompt_assets"]["reasoning_plan"] = list(dict.fromkeys(merged["prompt_assets"]["reasoning_plan"]))
         merged["prompt_assets"]["vector_contexts"] = list(dict.fromkeys(merged["prompt_assets"]["vector_contexts"]))
 
-        # tools by name deep merge precedence
         tools: dict[str, dict[str, Any]] = {}
         for env in [domain_env, org_env, usecase_env]:
             for a in self._extract_by_type(env, "tool_bindings"):
@@ -76,7 +127,7 @@ class DomainLayer:
                     name = tool.get("name")
                     if not name:
                         continue
-                    tools[name] = self._deep_merge(tools.get(name, {}), tool)
+                    tools[str(name)] = self._deep_merge(tools.get(str(name), {}), tool)
         merged["tool_bindings"] = list(tools.values())
         return merged
 
@@ -84,9 +135,8 @@ class DomainLayer:
         q = user_query.lower()
         hits = []
         for term, definition in merged.get("glossary", {}).items():
-            score = 1 if term.lower() in q else 0
-            if score:
-                hits.append({"term": term, "definition": definition, "score": score})
+            if term.lower() in q:
+                hits.append({"term": term, "definition": definition, "score": 1})
         return sorted(hits, key=lambda x: x["score"], reverse=True)[:top_n]
 
     def _artifact_score(self, query: str, artifact: dict[str, Any]) -> float:
@@ -106,7 +156,6 @@ class DomainLayer:
     def _extract_requested_filters(self, query: str) -> dict[str, str]:
         q = query.lower()
         requested: dict[str, str] = {}
-
         months = [
             "january",
             "february",
@@ -123,29 +172,17 @@ class DomainLayer:
         ]
         for month in months:
             if month in q:
-                if "service month" in q:
-                    requested["service_month"] = month.capitalize()
-                else:
-                    requested["month"] = month.capitalize()
+                requested["service_month" if "service month" in q else "month"] = month.capitalize()
                 break
 
-        # Simple region extraction from common labels.
         region_match = re.search(r"\b(eu|us|apac|emea|na|east|west|north|south)\b", q)
         if region_match:
             requested["region"] = region_match.group(1).upper()
-
         return requested
 
     def _detect_intent_mode(self, query: str) -> str:
         q = query.lower()
-        risk_only_signals = [
-            "only risk",
-            "risk analysis only",
-            "no reorder",
-            "skip reorder",
-            "without reorder",
-        ]
-        if any(signal in q for signal in risk_only_signals):
+        if any(signal in q for signal in ["only risk", "risk analysis only", "no reorder", "skip reorder", "without reorder"]):
             return "risk_only"
         if any(token in q for token in ["reorder", "plan", "recommendation"]):
             return "reorder"
@@ -192,51 +229,23 @@ class DomainLayer:
 
         composed_prompt = merged["prompt_assets"]["composed_prompt"] or "Answer as supply-chain analyst."
         if intent_mode == "risk_only":
-            composed_prompt += (
-                "\n\nIntent override: The user asked for risk-only analysis. "
-                "Do not provide reorder quantity recommendations in the final response."
-            )
+            composed_prompt += "\n\nIntent override: The user asked for risk-only analysis. Do not provide reorder quantity recommendations."
         elif intent_mode == "reorder":
-            composed_prompt += (
-                "\n\nIntent override: Provide reorder recommendations with concise rationale."
-            )
+            composed_prompt += "\n\nIntent override: Provide reorder recommendations with concise rationale."
         composed_prompt += f"\n\nUser Query: {query}\n"
         if search_hits:
             composed_prompt += "\nGlossary hits:\n" + "\n".join([f"- {h['term']}: {h['definition']}" for h in search_hits])
 
-        # inject data context into NL2SQL-like tools
         tables = merged.get("data_bindings", {}).get("tables", [])
         default_filters = merged.get("data_bindings", {}).get("filters", {})
         effective_filters = dict(default_filters)
         precedence_changes = []
-
-        # Managed precedence: user-specified filters override org/usecase defaults.
-        # Hard policy constraints can be added later as a separate enforcement step.
         for key, requested in requested_filters.items():
             previous = effective_filters.get(key)
             effective_filters[key] = requested
             if previous is not None and str(previous).lower() != str(requested).lower():
-                precedence_changes.append(
-                    {
-                        "field": key,
-                        "default": previous,
-                        "effective": requested,
-                        "reason": "user request overrides default",
-                    }
-                )
+                precedence_changes.append({"field": key, "default": previous, "effective": requested, "reason": "user request overrides default"})
 
-        conflicts_applied = []
-        for key, requested in requested_filters.items():
-            effective = effective_filters.get(key)
-            if effective is not None and str(requested).lower() != str(effective).lower():
-                conflicts_applied.append(
-                    {
-                        "field": key,
-                        "requested": requested,
-                        "effective": effective,
-                        "reason": "hard policy override",
-                    }
-                )
         tools = []
         for t in merged.get("tool_bindings", []):
             t2 = deepcopy(t)
@@ -249,10 +258,7 @@ class DomainLayer:
             "reasoning_plan": merged["prompt_assets"]["reasoning_plan"],
             "composed_prompt": composed_prompt,
             "tools": tools,
-            "citations": {
-                "artifact_refs": citations,
-                "vector_contexts": merged["prompt_assets"]["vector_contexts"],
-            },
+            "citations": {"artifact_refs": citations, "vector_contexts": merged["prompt_assets"]["vector_contexts"]},
             "trace": {
                 "top_n": top_n,
                 "openai_enabled": bool(os.getenv("OPENAI_API_KEY")),
@@ -264,7 +270,7 @@ class DomainLayer:
                 "default_filters": default_filters,
                 "effective_filters": effective_filters,
                 "precedence_changes": precedence_changes,
-                "conflicts_applied": conflicts_applied,
+                "conflicts_applied": [],
                 "intent_mode": intent_mode,
             },
         }
@@ -283,30 +289,21 @@ class DomainLayer:
         include = include or []
         exclude = exclude or []
         artifacts = self._collect_artifacts(domain, org, usecase, include, exclude)
-
-        results = []
-        for artifact in artifacts:
-            results.append(
-                {
-                    "type": artifact.get("type", "unknown"),
-                    "name": artifact.get("name", "unnamed"),
-                    "match_score": self._artifact_score(query, artifact),
-                    "snippet": artifact.get("snippet", ""),
-                    "source": artifact.get("source", ""),
-                    "scope": artifact.get("scope", ""),
-                }
-            )
+        results = [
+            {
+                "type": artifact.get("type", "unknown"),
+                "name": artifact.get("name", "unnamed"),
+                "match_score": self._artifact_score(query, artifact),
+                "snippet": artifact.get("snippet", ""),
+                "source": artifact.get("source", ""),
+                "scope": artifact.get("scope", ""),
+            }
+            for artifact in artifacts
+        ]
         results = sorted(results, key=lambda x: x["match_score"], reverse=True)[:top_n]
 
         payload: dict[str, Any] = {
-            "input": {
-                "query": query,
-                "domain": domain,
-                "org": org,
-                "usecase": usecase,
-                "top_n": top_n,
-                "for_each": for_each,
-            },
+            "input": {"query": query, "domain": domain, "org": org, "usecase": usecase, "top_n": top_n, "for_each": for_each},
             "results": results,
             "retrieved_from": ["Domain Artifact Registry"],
         }
@@ -330,7 +327,6 @@ class DomainLayer:
         include = include or []
         exclude = exclude or []
         artifacts = self._collect_artifacts(domain, org, usecase, include, exclude)
-
         results = [
             {
                 "type": a.get("type", "unknown"),
@@ -342,13 +338,7 @@ class DomainLayer:
             for a in artifacts[:limit]
         ]
         payload: dict[str, Any] = {
-            "input": {
-                "domain": domain,
-                "org": org,
-                "usecase": usecase,
-                "limit": limit,
-                "for_each": for_each,
-            },
+            "input": {"domain": domain, "org": org, "usecase": usecase, "limit": limit, "for_each": for_each},
             "results": results,
             "retrieved_from": ["Domain Artifact Registry"],
         }

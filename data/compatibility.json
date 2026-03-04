@@ -1,0 +1,26 @@
+{
+  "domains": {
+    "CPG": {
+      "orgs": ["PG", "UL"],
+      "usecases_by_org": {
+        "PG": ["PromoEffectiveness"],
+        "UL": ["SKUReorder"]
+      },
+      "usecases": ["PromoEffectiveness", "SKUReorder"]
+    },
+    "Banking": {
+      "orgs": ["Chase"],
+      "usecases_by_org": {
+        "Chase": ["FraudWatch"]
+      },
+      "usecases": ["FraudWatch"]
+    },
+    "HLS": {
+      "orgs": ["Optum"],
+      "usecases_by_org": {
+        "Optum": ["ClaimsTriage"]
+      },
+      "usecases": ["ClaimsTriage"]
+    }
+  }
+}

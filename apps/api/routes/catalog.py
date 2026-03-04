@@ -20,8 +20,7 @@ def list_domains(knowledge: Knowledge = Depends(get_knowledge)) -> CatalogRespon
 
 @router.get("/orgs", response_model=CatalogResponse)
 def list_orgs(domain: str = Query(...), knowledge: Knowledge = Depends(get_knowledge)) -> CatalogResponse:
-    _ = domain
-    items = [CatalogItem(id=name, name=name) for name in knowledge.orgs()]
+    items = [CatalogItem(id=name, name=name) for name in knowledge.orgs(domain=domain)]
     return CatalogResponse(items=items)
 
 
@@ -29,6 +28,5 @@ def list_orgs(domain: str = Query(...), knowledge: Knowledge = Depends(get_knowl
 def list_usecases(
     domain: str = Query(...), org: str = Query(...), knowledge: Knowledge = Depends(get_knowledge)
 ) -> CatalogResponse:
-    _ = domain, org
-    items = [CatalogItem(id=name, name=name) for name in knowledge.usecases()]
+    items = [CatalogItem(id=name, name=name) for name in knowledge.usecases(domain=domain, org=org)]
     return CatalogResponse(items=items)

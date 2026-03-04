@@ -14,7 +14,7 @@ def test_query_orchestrate_returns_layered_payload_shape():
     assert out["input"]["domain"] == "CPG"
     assert isinstance(out["reasoning_plan"], list)
     assert isinstance(out["tools"], list)
-    assert "artifact_refs" in out["citations"]
+    assert "glossary" in out["citations"] or "ontology" in out["citations"]
     assert "vector_contexts" in out["citations"]
     assert out["trace"]["domain"] == "CPG"
     assert out["trace"]["org"] == "UL"

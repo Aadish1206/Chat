@@ -1,24 +1,49 @@
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from typing import Any
 
 from .registry import ArtifactRegistry
 
 
 class Knowledge:
-    """Single-scope inspection only. No cross-layer merge in list()."""
+    """Single-scope inspection with optional compatibility filtering."""
 
     def __init__(self, root: str = "data") -> None:
         self.registry = ArtifactRegistry(root)
+        self.root = Path(root)
+        self.compatibility = self._load_compatibility()
+
+    def _load_compatibility(self) -> dict[str, Any]:
+        path = self.root / "compatibility.json"
+        if not path.exists():
+            return {}
+        return json.loads(path.read_text())
 
     def domains(self) -> list[str]:
-        return self.registry.list_keys("domain")
+        configured = sorted((self.compatibility.get("domains") or {}).keys())
+        return configured or self.registry.list_keys("domain")
 
-    def orgs(self) -> list[str]:
+    def orgs(self, domain: str | None = None) -> list[str]:
+        if not domain:
+            return self.registry.list_keys("org")
+        domain_conf = (self.compatibility.get("domains") or {}).get(domain, {})
+        if domain_conf.get("orgs"):
+            return sorted(domain_conf["orgs"])
         return self.registry.list_keys("org")
 
-    def usecases(self) -> list[str]:
-        return self.registry.list_keys("usecase")
+    def usecases(self, domain: str | None = None, org: str | None = None) -> list[str]:
+        if not domain:
+            return self.registry.list_keys("usecase")
+
+        domain_conf = (self.compatibility.get("domains") or {}).get(domain, {})
+        if org:
+            by_org = domain_conf.get("usecases_by_org", {})
+            if by_org.get(org):
+                return sorted(by_org[org])
+        domain_usecases = domain_conf.get("usecases", [])
+        return sorted(domain_usecases) if domain_usecases else self.registry.list_keys("usecase")
 
     def list(
         self,

@@ -41,3 +41,16 @@ curl -s -X POST http://localhost:8000/chat \
 - `GET /catalog/orgs?domain=CPG`
 - `GET /catalog/usecases?domain=CPG&org=PG`
 - `POST /chat`
+
+## Architecture note
+
+- **Canonical runtime path (active API):** `apps/api/*` -> `runtime/*` -> `domain_layer.py` -> `data/*`.
+- The legacy `core/*` path remains in the repo for reference, but new endpoint behavior is implemented on the runtime path above.
+- Domain/org/usecase compatibility filtering is driven by `data/compatibility.json`.
+
+## Artifact compatibility
+
+The runtime supports both:
+- the lightweight PoC artifact payloads currently in `data/*/artifacts.json`, and
+- the canonical envelope format (including glossary `content.terms`, data_bindings `tables` + `columns`, and prompt_assets `content.prompts`).
+

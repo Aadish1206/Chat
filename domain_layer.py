@@ -123,8 +123,10 @@ class DomainLayer:
         ]
         for month in months:
             if month in q:
-                requested["month"] = month.capitalize()
-                requested["service_month"] = month.capitalize()
+                if "service month" in q:
+                    requested["service_month"] = month.capitalize()
+                else:
+                    requested["month"] = month.capitalize()
                 break
 
         # Simple region extraction from common labels.
@@ -133,6 +135,21 @@ class DomainLayer:
             requested["region"] = region_match.group(1).upper()
 
         return requested
+
+    def _detect_intent_mode(self, query: str) -> str:
+        q = query.lower()
+        risk_only_signals = [
+            "only risk",
+            "risk analysis only",
+            "no reorder",
+            "skip reorder",
+            "without reorder",
+        ]
+        if any(signal in q for signal in risk_only_signals):
+            return "risk_only"
+        if any(token in q for token in ["reorder", "plan", "recommendation"]):
+            return "reorder"
+        return "general"
 
     def _collect_artifacts(
         self,
@@ -171,34 +188,60 @@ class DomainLayer:
         citations = [f"domain/{domain}/artifacts.json", f"org/{org}/artifacts.json", f"usecase/{usecase}/artifacts.json"]
         search_hits = self._search(query, merged, top_n)
         requested_filters = self._extract_requested_filters(query)
+        intent_mode = self._detect_intent_mode(query)
 
         composed_prompt = merged["prompt_assets"]["composed_prompt"] or "Answer as supply-chain analyst."
+        if intent_mode == "risk_only":
+            composed_prompt += (
+                "\n\nIntent override: The user asked for risk-only analysis. "
+                "Do not provide reorder quantity recommendations in the final response."
+            )
+        elif intent_mode == "reorder":
+            composed_prompt += (
+                "\n\nIntent override: Provide reorder recommendations with concise rationale."
+            )
         composed_prompt += f"\n\nUser Query: {query}\n"
         if search_hits:
             composed_prompt += "\nGlossary hits:\n" + "\n".join([f"- {h['term']}: {h['definition']}" for h in search_hits])
 
         # inject data context into NL2SQL-like tools
         tables = merged.get("data_bindings", {}).get("tables", [])
-        filters = merged.get("data_bindings", {}).get("filters", {})
+        default_filters = merged.get("data_bindings", {}).get("filters", {})
+        effective_filters = dict(default_filters)
+        precedence_changes = []
+
+        # Managed precedence: user-specified filters override org/usecase defaults.
+        # Hard policy constraints can be added later as a separate enforcement step.
+        for key, requested in requested_filters.items():
+            previous = effective_filters.get(key)
+            effective_filters[key] = requested
+            if previous is not None and str(previous).lower() != str(requested).lower():
+                precedence_changes.append(
+                    {
+                        "field": key,
+                        "default": previous,
+                        "effective": requested,
+                        "reason": "user request overrides default",
+                    }
+                )
+
         conflicts_applied = []
         for key, requested in requested_filters.items():
-            effective = filters.get(key)
-            if effective is None:
-                continue
-            if str(requested).lower() != str(effective).lower():
+            effective = effective_filters.get(key)
+            if effective is not None and str(requested).lower() != str(effective).lower():
                 conflicts_applied.append(
                     {
                         "field": key,
                         "requested": requested,
                         "effective": effective,
-                        "reason": "layer override",
+                        "reason": "hard policy override",
                     }
                 )
         tools = []
         for t in merged.get("tool_bindings", []):
             t2 = deepcopy(t)
             if t2.get("name", "").lower() in {"nl2sql", "nl2sql_tool"}:
-                t2.setdefault("input", {})["data_context"] = {"tables": tables, "filters": filters}
+                t2.setdefault("input", {})["data_context"] = {"tables": tables, "filters": effective_filters}
             tools.append(t2)
 
         return {
@@ -218,8 +261,11 @@ class DomainLayer:
                 "org": org,
                 "usecase": usecase,
                 "requested_filters": requested_filters,
-                "effective_filters": filters,
+                "default_filters": default_filters,
+                "effective_filters": effective_filters,
+                "precedence_changes": precedence_changes,
                 "conflicts_applied": conflicts_applied,
+                "intent_mode": intent_mode,
             },
         }
 
